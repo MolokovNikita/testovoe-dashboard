@@ -6,11 +6,11 @@ const cookieParser = require("cookie-parser");
 const app = express();
 app.use(bodyParser.json());
 
-// const authorRoutes = require('./routes/authors');
-// const bookRoutes = require('./routes/books');
+const authorRoutes = require('./routes/authorsRouter.js');
+const bookRoutes = require('./routes/booksRouter.js');
 
-// app.use('/api/authors', authorRoutes);
-// app.use('/api/books', bookRoutes);
+app.use('/api/authors', authorRoutes);
+app.use('/api/books', bookRoutes);
 
 const PORT = process.env.PORT || 5002;
 const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:5173";
@@ -20,12 +20,11 @@ app.use(
   cors({
     credentials: true,
     origin: CLIENT_URL,
-    allowedHeaders: ["Authorization", "Content-Type", "x-token"],
   }),
 );
 
 app.listen(PORT, async () => {
   console.log(`Сервер запущен на http://localhost:${PORT}`);
-//   await sequelize.authenticate();
+  await sequelize.authenticate();
   console.log('Подключение к базе данных успешно!');
 });
