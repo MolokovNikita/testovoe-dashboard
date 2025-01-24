@@ -66,20 +66,47 @@ class BooksController {
     try {
       const { id } = req.params;
       const { title, publication_date, author_id, age, cost } = req.body;
+
+      const [currentData] = await sequelize.query(
+        `SELECT title, publication_date, author_id, age, cost 
+         FROM books 
+         WHERE id = :id`,
+        {
+          replacements: { id },
+          type: sequelize.QueryTypes.SELECT,
+        },
+      );
+
+      if (!currentData) {
+        return res.status(404).json({ message: "Книга не найдена" });
+      }
+
+      if (
+        currentData.title == title &&
+        currentData.publication_date == publication_date &&
+        currentData.author_id == author_id &&
+        currentData.age == age &&
+        currentData.cost == cost
+      ) {
+        return res.status(400).json({ message: "Данные не изменились" });
+      }
+
       const [updated] = await sequelize.query(
         `UPDATE books 
-                 SET title = :title, publication_date = :publication_date, author_id = :author_id, 
-                     age = :age, cost = :cost
-                 WHERE id = :id
-                 RETURNING *`,
+         SET title = :title, publication_date = :publication_date, author_id = :author_id, 
+             age = :age, cost = :cost
+         WHERE id = :id
+         RETURNING *`,
         {
           replacements: { id, title, publication_date, author_id, age, cost },
           type: sequelize.QueryTypes.UPDATE,
         },
       );
+
       if (!updated || updated.length === 0) {
         return res.status(404).json({ message: "Книга не найдена" });
       }
+
       res.json(updated);
     } catch (error) {
       console.error("Ошибка при обновлении книги:", error);

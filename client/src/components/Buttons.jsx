@@ -1,4 +1,6 @@
-const Buttons = () => {
+const Buttons = (props) => {
+  const { handleDelete, handleChange } = props;
+
   return (
     <div
       style={{
@@ -16,13 +18,13 @@ const Buttons = () => {
       </button>
       <button
         className="action-button edit-button"
-        onClick={() => console.log("Изменить")}
+        onClick={() => handleChange()}
       >
         Изменить
       </button>
       <button
         className="action-button delete-button"
-        onClick={() => console.log("Удалить")}
+        onClick={() => handleDelete()}
       >
         Удалить
       </button>

@@ -64,19 +64,40 @@ class AuthorsController {
     try {
       const { id } = req.params;
       const { name, birth_date } = req.body;
+      const [currentData] = await sequelize.query(
+        `SELECT name, birth_date 
+         FROM authors 
+         WHERE id = :id`,
+        {
+          replacements: { id },
+          type: sequelize.QueryTypes.SELECT,
+        },
+      );
+
+      if (!currentData) {
+        return res.status(404).json({ message: "Автор не найден" });
+      }
+      const birth_dateBD = new Date(birth_date).toISOString();
+      const currentDBDate = new Date(currentData.birth_date).toISOString();
+      if (currentData.name === name && currentDBDate === birth_dateBD) {
+        return res.status(400).json({ message: "Данные не изменились" });
+      }
+
       const [updated] = await sequelize.query(
         `UPDATE authors 
-                 SET name = :name, birth_date = :birth_date
-                 WHERE id = :id
-                 RETURNING *`,
+         SET name = :name, birth_date = :birth_date
+         WHERE id = :id
+         RETURNING *`,
         {
           replacements: { id, name, birth_date },
           type: sequelize.QueryTypes.UPDATE,
         },
       );
+
       if (!updated || updated.length === 0) {
         return res.status(404).json({ message: "Автор не найден" });
       }
+
       res.json(updated);
     } catch (error) {
       console.error("Ошибка при обновлении автора:", error);

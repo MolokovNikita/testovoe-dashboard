@@ -10,9 +10,19 @@ const authorRoutes = require("./routes/authorsRouter.js");
 const bookRoutes = require("./routes/booksRouter.js");
 
 app.use((req, res, next) => {
-  res.header({ "Access-Control-Allow-Origin": "*" });
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
   next();
 });
+
+app.options("*", (req, res) => {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.sendStatus(200);
+});
+
 app.use("/api/authors", authorRoutes);
 app.use("/api/books", bookRoutes);
 
@@ -24,6 +34,8 @@ app.use(
   cors({
     credentials: true,
     origin: CLIENT_URL,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   }),
 );
 
