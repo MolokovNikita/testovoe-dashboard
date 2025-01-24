@@ -9,11 +9,15 @@ app.use(bodyParser.json());
 const authorRoutes = require("./routes/authorsRouter.js");
 const bookRoutes = require("./routes/booksRouter.js");
 
+app.use((req, res, next) => {
+  res.header({ "Access-Control-Allow-Origin": "*" });
+  next();
+});
 app.use("/api/authors", authorRoutes);
 app.use("/api/books", bookRoutes);
 
 const PORT = process.env.PORT || 5002;
-const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:5173";
+const CLIENT_URL = "http://localhost:3000"; //process.env.CLIENT_URL ||
 app.use(cookieParser());
 app.use(express.json());
 app.use(
@@ -22,6 +26,7 @@ app.use(
     origin: CLIENT_URL,
   }),
 );
+
 app.listen(PORT, async () => {
   console.log(`Сервер запущен на http://localhost:${PORT}`);
   await sequelize.authenticate();

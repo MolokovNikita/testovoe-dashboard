@@ -4,6 +4,13 @@ class BooksController {
   async getAll(req, res) {
     try {
       const { limit = 10, offset = 0 } = req.query;
+      const totalRecordsQuery = await sequelize.query(
+        `SELECT COUNT(*) as count FROM books`,
+        {
+          type: sequelize.QueryTypes.SELECT,
+        },
+      );
+      const totalRecords = totalRecordsQuery[0].count;
       const books = await sequelize.query(
         `SELECT * FROM books LIMIT :limit OFFSET :offset`,
         {
@@ -11,7 +18,10 @@ class BooksController {
           type: sequelize.QueryTypes.SELECT,
         },
       );
-      res.json(books);
+      res.json({
+        books,
+        totalRecords: parseInt(totalRecords),
+      });
     } catch (error) {
       console.error("Ошибка при получении списка книг:", error);
       res.status(500).json({ message: "Ошибка сервера" });

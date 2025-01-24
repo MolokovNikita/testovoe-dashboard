@@ -113,7 +113,6 @@ const routes = [
     route: "/authentication/sign-up",
     component: <SignUp />,
   },
-  
 ];
 
 export default routes;
