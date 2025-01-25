@@ -17,6 +17,13 @@ module.exports = {
       },
       author_id: {
         type: Sequelize.INTEGER,
+        references: {
+          model: "authors",
+          key: "id",
+        },
+        onUpdate: "CASCADE",
+        onDelete: "SET NULL",
+        allowNull: true,
       },
       age: {
         type: Sequelize.INTEGER,
@@ -27,6 +34,6 @@ module.exports = {
     });
   },
   async down(queryInterface, Sequelize) {
-    await queryInterface.dropTable("Books");
+    await queryInterface.dropTable("books");
   },
 };

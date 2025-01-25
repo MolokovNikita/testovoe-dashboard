@@ -12,7 +12,8 @@ const AuthorsGrid = () => {
   const timeoutRef = useRef(null);
   const [alertMessage, setAlertMessage] = useState("");
   const [alertType, setAlertType] = useState("error");
-
+  const gridRef = useRef(null);
+  const [isAdding, setIsAdding] = useState(false);
   const [authorsColumnDefs, setAuthorsColumnDefs] = useState([
     { headerName: "ID", field: "id", sortable: true, filter: true, flex: 1 },
     {
@@ -27,7 +28,6 @@ const AuthorsGrid = () => {
       headerName: "Дата рождения",
       field: "birth_date",
       sortable: true,
-      valueFormatter: formatDate,
       flex: 1,
       editable: true,
     },
@@ -56,7 +56,14 @@ const AuthorsGrid = () => {
   const fetchAuthors = async () => {
     try {
       const response = await axios.get("http://localhost:5002/api/authors");
-      setAuthorsData(response.data);
+      const authorsWithFormattedDates = response.data.map((author) => {
+        return {
+          ...author,
+          birth_date: new Date(author.birth_date).toLocaleDateString("ru-RU"),
+        };
+      });
+
+      setAuthorsData(authorsWithFormattedDates);
     } catch (error) {
       console.error("Ошибка загрузки авторов:", error);
     }
@@ -68,72 +75,41 @@ const AuthorsGrid = () => {
     setSelectedAuthor(selectedData);
   };
 
-  function formatDate(params) {
-    const date = new Date(params.value);
-    if (params.colDef.field === "birth_date") {
-      return date.toLocaleDateString("ru-RU");
-    }
-    return params.value;
-  }
-
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
     }
     if (selectedAuthor.length === 0) {
-      setAlertMessage("Пожалуйста, выберите автора для удаления!");
-      setAlertType("error");
-      setAlertVisible(true);
-      timeoutRef.current = setTimeout(() => {
-        setAlertVisible(false);
-      }, 5000);
-
+      showAlert("Пожалуйста, выберите автора для удаления!", "error");
       return;
     }
-    axios
-      .delete(`http://localhost:5002/api/authors/${selectedAuthor[0].id}`)
-      .then((response) => {
-        const updatedAuthorsData = authorsData.filter(
-          (author) => author.id !== selectedAuthor[0].id,
-        );
-        setAuthorsData(updatedAuthorsData);
-
-        setSelectedAuthor([]);
-        setAlertMessage("Автор успешно удален!");
-        setAlertType("success");
-        setAlertVisible(true);
-      })
-      .catch((error) => {
-        console.error(error);
-        setSelectedAuthor([]);
-        setAlertMessage("Произошла ошибка!");
-        setAlertType("error");
-        setAlertVisible(true);
-      })
-      .finally(() => {
-        timeoutRef.current = setTimeout(() => {
-          setAlertVisible(false);
-        }, 5000);
-      });
+    try {
+      await axios.delete(
+        `http://localhost:5002/api/authors/${selectedAuthor[0].id}`,
+      );
+      const updatedAuthorsData = authorsData.filter(
+        (author) => author.id !== selectedAuthor[0].id,
+      );
+      setAuthorsData(updatedAuthorsData);
+      setSelectedAuthor([]);
+      showAlert("Автор успешно удален!", "success");
+    } catch (error) {
+      console.error(error);
+      showAlert("Произошла ошибка при удалении автора!", "error");
+    }
   };
+
   const handleChange = async () => {
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
     }
     if (selectedAuthor.length === 0) {
-      setAlertMessage("Пожалуйста, выберите строку для изменения!");
-      setAlertType("error");
-      setAlertVisible(true);
-
-      timeoutRef.current = setTimeout(() => {
-        setAlertVisible(false);
-      }, 5000);
-
+      showAlert("Пожалуйста, выберите строку для изменения!", "error");
       return;
     }
     const updatedAuthor = selectedAuthor[0];
     try {
-      const response = await axios.put(
+      await axios.put(
         `http://localhost:5002/api/authors/${updatedAuthor.id}`,
         updatedAuthor,
       );
@@ -142,29 +118,103 @@ const AuthorsGrid = () => {
           author.id === updatedAuthor.id ? updatedAuthor : author,
         ),
       );
-      setAlertMessage("Данные успешно изменены!");
-      setAlertType("success");
-      setAlertVisible(true);
+      showAlert("Данные успешно изменены!", "success");
     } catch (error) {
-      console.error("Ошибка изменения данных:", error.response.data.message);
-      setAlertMessage(
-        `Ошибка изменения данных! - ${error.response.data.message}`,
-      );
-      setAlertType("error");
-      setAlertVisible(true);
-    } finally {
-      timeoutRef.current = setTimeout(() => {
-        setAlertVisible(false);
-      }, 5000);
+      console.error("Ошибка изменения данных:", error);
+      showAlert("Ошибка изменения данных!", "error");
     }
   };
+
+  const handleAdd = () => {
+    setIsAdding(true);
+    const gridApi = gridRef.current.api;
+    const newRow = {
+      tempId: Date.now(),
+      id: undefined,
+      name: "",
+      birth_date: "",
+    };
+    gridApi.applyTransaction({ add: [newRow] });
+  };
+
+  const handleSave = async () => {
+    const gridApi = gridRef.current.api;
+
+    const rowsToUpdate = [];
+    const rowsToDelete = [];
+
+    gridApi.forEachNode((node) => {
+      if (!node.data.name || !node.data.birth_date.trim()) {
+        rowsToDelete.push(node.data);
+      } else {
+        rowsToUpdate.push(node.data);
+      }
+    });
+
+    if (rowsToDelete.length > 0) {
+      gridApi.applyTransaction({
+        remove: rowsToDelete,
+      });
+      showAlert(
+        "Некоторые строки содержат пустые обязательные поля и были удалены!",
+        "error",
+      );
+      setIsAdding(false);
+      return;
+    }
+    try {
+      const lastRow = rowsToUpdate[rowsToUpdate.length - 1];
+      const response = await axios.post(
+        "http://localhost:5002/api/authors",
+        lastRow,
+      );
+      const newAuthor = response.data[0];
+      const authorToAdd = {
+        id: newAuthor.id,
+        name: newAuthor.name,
+        birth_date: new Date(newAuthor.birth_date).toLocaleDateString("ru-RU"),
+      };
+      gridApi.applyTransaction({
+        remove: gridApi.getRowNode(lastRow.tempId)?.data ? [lastRow] : [],
+      });
+      gridApi.applyTransaction({
+        add: [newAuthor],
+      });
+      setAuthorsData((prevData) => {
+        const filteredData = prevData.filter(
+          (author) => author.id !== undefined,
+        );
+        return [...filteredData, authorToAdd];
+      });
+      showAlert("Данные успешно сохранены!", "success");
+      setIsAdding(false);
+    } catch (error) {
+      console.error("Ошибка при сохранении данных:", error);
+      showAlert("Произошла ошибка при сохранении данных.", "error");
+      setIsAdding(false);
+    }
+  };
+
+  function showAlert(message, type) {
+    setAlertMessage(message);
+    setAlertType(type);
+    setAlertVisible(true);
+
+    timeoutRef.current = setTimeout(() => {
+      setAlertVisible(false);
+    }, 5000);
+  }
 
   const handleCloseAlert = () => {
     setAlertVisible(false);
   };
 
   return (
-    <>
+    <div
+      style={{
+        paddingBottom: "50px",
+      }}
+    >
       {alertVisible && (
         <div
           style={{
@@ -186,35 +236,33 @@ const AuthorsGrid = () => {
           width: "70%",
           height: "350px",
           margin: "20px auto",
-          position: "relative",
         }}
       >
-        {alertVisible && (
-          <div
-            style={{
-              position: "absolute",
-              top: "10px",
-              right: "10px",
-              zIndex: 1000,
-              width: "300px",
-            }}
-          ></div>
-        )}
+        <div style={{ marginBottom: "15px" }}>
+          <Buttons
+            handleDelete={handleDelete}
+            handleChange={handleChange}
+            handleAdd={handleAdd}
+            handleSave={handleSave}
+            isAdding={isAdding}
+          />
+        </div>
         <AgGridReact
+          ref={gridRef}
           rowData={authorsData}
           columnDefs={authorsColumnDefs}
           rowSelection={rowSelection}
+          getRowId={(params) =>
+            String(params.data.id) || String(params.data.tempId)
+          }
           onRowSelected={onRowSelected}
           pagination={pagination}
           paginationPageSize={paginationPageSize}
           paginationPageSizeSelector={paginationPageSizeSelector}
           theme={myTheme}
         />
-        <div style={{ marginTop: "20px" }}>
-          <Buttons handleDelete={handleDelete} handleChange={handleChange} />
-        </div>
       </div>
-    </>
+    </div>
   );
 };
 

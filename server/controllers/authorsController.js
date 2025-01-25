@@ -24,12 +24,16 @@ class AuthorsController {
   async create(req, res) {
     try {
       const { name, birth_date } = req.body;
+      const [day, month, year] = birth_date.split(".");
+      const formattedBirthDate = new Date(`${year}-${month}-${day}`)
+        .toISOString()
+        .split("T")[0];
       const author = await sequelize.query(
         `INSERT INTO authors (name, birth_date) 
                  VALUES (:name, :birth_date)
                  RETURNING *`,
         {
-          replacements: { name, birth_date },
+          replacements: { name, birth_date: formattedBirthDate },
           type: sequelize.QueryTypes.INSERT,
         },
       );
@@ -59,11 +63,16 @@ class AuthorsController {
       res.status(500).json({ message: "Ошибка сервера" });
     }
   }
-
   async update(req, res) {
     try {
       const { id } = req.params;
       const { name, birth_date } = req.body;
+
+      const [day, month, year] = birth_date.split(".");
+      const formattedBirthDate = new Date(`${year}-${month}-${day}`)
+        .toISOString()
+        .split("T")[0];
+
       const [currentData] = await sequelize.query(
         `SELECT name, birth_date 
          FROM authors 
@@ -77,9 +86,12 @@ class AuthorsController {
       if (!currentData) {
         return res.status(404).json({ message: "Автор не найден" });
       }
-      const birth_dateBD = new Date(birth_date).toISOString();
-      const currentDBDate = new Date(currentData.birth_date).toISOString();
-      if (currentData.name === name && currentDBDate === birth_dateBD) {
+
+      const currentDBDate = new Date(currentData.birth_date)
+        .toISOString()
+        .split("T")[0];
+
+      if (currentData.name === name && currentDBDate === formattedBirthDate) {
         return res.status(400).json({ message: "Данные не изменились" });
       }
 
@@ -89,7 +101,7 @@ class AuthorsController {
          WHERE id = :id
          RETURNING *`,
         {
-          replacements: { id, name, birth_date },
+          replacements: { id, name, birth_date: formattedBirthDate },
           type: sequelize.QueryTypes.UPDATE,
         },
       );
