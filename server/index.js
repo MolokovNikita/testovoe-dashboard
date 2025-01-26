@@ -27,7 +27,7 @@ app.use("/api/authors", authorRoutes);
 app.use("/api/books", bookRoutes);
 
 const PORT = process.env.PORT || 5002;
-const CLIENT_URL = "http://localhost:3000"; //process.env.CLIENT_URL ||
+const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:3001";
 app.use(cookieParser());
 app.use(express.json());
 app.use(

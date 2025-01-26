@@ -4,7 +4,7 @@ import axios from "axios";
 import Buttons from "./Buttons.jsx";
 import MDAlert from "components/MDAlert";
 import { func } from "prop-types";
-
+import AddNewRecordForm from "./AddNewRecordForm.jsx";
 const InfiniteLoadingGrid = () => {
   const [selectedBook, setSelectedBook] = useState([]);
   const [alertVisible, setAlertVisible] = useState(false);
@@ -13,9 +13,33 @@ const InfiniteLoadingGrid = () => {
   const [alertType, setAlertType] = useState("error");
   const gridRef = useRef(null);
   const [isAdding, setIsAdding] = useState(false);
+  const [formData, setFormData] = useState({
+    title: "",
+    publication_date: "",
+    author_id: "",
+    cost: "",
+    age: "",
+  });
 
   const [columnDefs] = useState([
-    { headerName: "ID", field: "id", sortable: false, flex: 1 },
+    {
+      headerName: "ID",
+      field: "id",
+      sortable: false,
+      flex: 1,
+      cellRenderer: (props) => {
+        if (props.value !== undefined) {
+          return props.value;
+        } else {
+          return (
+            <img
+              src="https://www.ag-grid.com/example-assets/loading.gif"
+              alt="loading"
+            />
+          );
+        }
+      },
+    },
     {
       headerName: "Название",
       field: "title",
@@ -65,21 +89,25 @@ const InfiniteLoadingGrid = () => {
             params.startRow,
             params.endRow,
           );
-
-          const response = await axios.get("http://localhost:5002/api/books", {
-            params: {
-              offset: params.startRow,
-              limit: params.endRow - params.startRow,
-            },
-          });
-          const { books, totalRecords } = response.data;
-          const formattedBooks = books.map((book) => ({
-            ...book,
-            publication_date: new Date(
-              book.publication_date,
-            ).toLocaleDateString("ru-RU"),
-          }));
-          params.successCallback(formattedBooks, totalRecords);
+          setTimeout(async () => {
+            const response = await axios.get(
+              "http://localhost:5002/api/books",
+              {
+                params: {
+                  offset: params.startRow,
+                  limit: params.endRow - params.startRow,
+                },
+              },
+            );
+            const { books, totalRecords } = response.data;
+            const formattedBooks = books.map((book) => ({
+              ...book,
+              publication_date: new Date(
+                book.publication_date,
+              ).toLocaleDateString("ru-RU"),
+            }));
+            params.successCallback(formattedBooks, totalRecords);
+          }, 500);
         } catch (error) {
           console.error("Ошибка при загрузке данных:", error);
           params.failCallback();
@@ -95,25 +123,8 @@ const InfiniteLoadingGrid = () => {
     setSelectedBook(selectedData);
   }, []);
 
-  const handleAdd = useCallback(async () => {
+  const handleAdd = useCallback(() => {
     setIsAdding(true);
-    try {
-      const newBook = {
-        title: "Новое название",
-        publication_date: new Date().toISOString().split("T")[0],
-        author_id: 1, // Замените на реальное значение
-        cost: 0,
-        age: 0,
-      };
-      await axios.post("http://localhost:5002/api/books", newBook);
-      gridRef.current.api.refreshInfiniteCache();
-      showAlert("Новая книга добавлена!", "success");
-    } catch (error) {
-      console.error("Ошибка при добавлении книги:", error);
-      showAlert("Ошибка при добавлении книги.", "error");
-    } finally {
-      setIsAdding(false);
-    }
   }, []);
   const handleChange = useCallback(async () => {
     if (selectedBook.length === 0) {
@@ -144,23 +155,30 @@ const InfiniteLoadingGrid = () => {
   }, [selectedBook, showAlert]);
 
   const handleSave = useCallback(async () => {
-    if (!selectedBook.length) {
-      showAlert("Выберите строку для сохранения!", "error");
-      return;
-    }
     try {
-      const updatedBook = selectedBook[0];
-      await axios.put(
-        `http://localhost:5002/api/books/${updatedBook.id}`,
-        updatedBook,
-      );
+      if (!formData.title || !formData.publication_date) {
+        showAlert("Заполните все обязательные поля!", "error");
+        return;
+      }
+      await axios.post("http://localhost:5002/api/books", formData);
       gridRef.current.api.refreshInfiniteCache();
       showAlert("Данные успешно сохранены!", "success");
+      setFormData({
+        title: "",
+        publication_date: "",
+        author_id: "",
+        cost: "",
+        age: "",
+      });
+      setIsAdding(false);
     } catch (error) {
       console.error("Ошибка при сохранении данных:", error);
-      showAlert("Ошибка при сохранении данных.", "error");
+      showAlert(
+        `Ошибка при сохранении данных. ${error.response.data.message}`,
+        "error",
+      );
     }
-  }, [selectedBook]);
+  }, [formData]);
 
   const handleDelete = useCallback(async () => {
     if (!selectedBook.length) {
@@ -220,6 +238,13 @@ const InfiniteLoadingGrid = () => {
           handleChange={handleChange}
         />
       </div>
+      {isAdding ? (
+        <AddNewRecordForm
+          formData={formData}
+          setFormData={setFormData}
+          setIsAdding={setIsAdding}
+        />
+      ) : null}
       <div style={{ height: "500px", width: "90%", margin: "0 auto" }}>
         <AgGridReact
           ref={gridRef}

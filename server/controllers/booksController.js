@@ -31,21 +31,36 @@ class BooksController {
   async create(req, res) {
     try {
       const { title, publication_date, author_id, age, cost } = req.body;
+
+      const authorCheck = await sequelize.query(
+        `SELECT * FROM authors WHERE id = :author_id`,
+        {
+          replacements: { author_id },
+          type: sequelize.QueryTypes.SELECT,
+        },
+      );
+
+      if (authorCheck.length === 0) {
+        return res.status(404).json({ message: "Автор с таким ID не найден" });
+      }
+
       const book = await sequelize.query(
         `INSERT INTO books (title, publication_date, author_id, age, cost) 
-                 VALUES (:title, :publication_date, :author_id, :age, :cost)
-                 RETURNING *`,
+                   VALUES (:title, :publication_date, :author_id, :age, :cost)
+                   RETURNING *`,
         {
           replacements: { title, publication_date, author_id, age, cost },
           type: sequelize.QueryTypes.INSERT,
         },
       );
+
       res.json(book[0]);
     } catch (error) {
       console.error("Ошибка при создании книги:", error);
       res.status(500).json({ message: "Ошибка сервера" });
     }
   }
+
   async getOne(req, res) {
     try {
       const { id } = req.params;
@@ -71,8 +86,6 @@ class BooksController {
       const formattedPublicationDate = new Date(`${year}-${month}-${day}`)
         .toISOString()
         .split("T")[0];
-      console.log("publication_date - ", publication_date);
-      console.log("formattedPublicationDate - ", formattedPublicationDate);
 
       const [currentData] = await sequelize.query(
         `SELECT title, publication_date, author_id, age, cost 
@@ -92,7 +105,6 @@ class BooksController {
         .toISOString()
         .split("T")[0];
 
-      console.log("currentDBDate - ", currentDBDate);
       if (
         currentData.title === title &&
         currentDBDate === formattedPublicationDate &&
@@ -131,11 +143,9 @@ class BooksController {
     } catch (error) {
       if (error.name === "SequelizeForeignKeyConstraintError") {
         console.error("Ошибка внешнего ключа:", error);
-        res
-          .status(400)
-          .send({
-            message: "Невозможно обновить книгу: автор с таким ID не найден",
-          });
+        res.status(400).send({
+          message: "Невозможно обновить книгу: автор с таким ID не найден",
+        });
       } else {
         console.error("Ошибка при обновлении книги:", error);
         res.status(500).send({ message: "Ошибка при обновлении книги" });
